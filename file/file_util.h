@@ -1,61 +1,36 @@
-//  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under both the GPLv2 (found in the
-//  COPYING file in the root directory) and Apache 2.0 License
-//  (found in the LICENSE.Apache file in the root directory).
+// 版权声明
+// 包含两个许可证的声明：GPLv2 和 Apache 2.0
 //
 #pragma once
 #include <string>
 
-#include "file/filename.h"
-#include "options/db_options.h"
-#include "rocksdb/env.h"
-#include "rocksdb/file_system.h"
-#include "rocksdb/sst_file_writer.h"
-#include "rocksdb/statistics.h"
-#include "rocksdb/status.h"
-#include "rocksdb/system_clock.h"
-#include "rocksdb/types.h"
-#include "trace_replay/io_tracer.h"
+#include "file/filename.h"  // 文件名相关的函数
+#include "options/db_options.h"  // 数据库选项
+#include "rocksdb/env.h"  // RocksDB 环境
+#include "rocksdb/file_system.h"  // RocksDB 文件系统
+#include "rocksdb/sst_file_writer.h"  // SST 文件写入器
+#include "rocksdb/statistics.h"  // 统计信息
+#include "rocksdb/status.h"  // 状态信息
+#include "rocksdb/system_clock.h"  // 系统时钟
+#include "rocksdb/types.h"  // RocksDB 类型
+#include "trace_replay/io_tracer.h"  // IO 追踪器
 
 namespace ROCKSDB_NAMESPACE {
-// use_fsync maps to options.use_fsync, which determines the way that
-// the file is synced after copying.
+// 对文件系统进行操作和管理的一些常用功能
+// 复制文件到目标位置
 IOStatus CopyFile(FileSystem* fs, const std::string& source,
                   Temperature src_temp_hint,
                   std::unique_ptr<WritableFileWriter>& dest_writer,
                   uint64_t size, bool use_fsync,
                   const std::shared_ptr<IOTracer>& io_tracer);
+
+// 复制文件到目标位置
 IOStatus CopyFile(FileSystem* fs, const std::string& source,
                   Temperature src_temp_hint, const std::string& destination,
                   Temperature dst_temp, uint64_t size, bool use_fsync,
                   const std::shared_ptr<IOTracer>& io_tracer);
-inline IOStatus CopyFile(const std::shared_ptr<FileSystem>& fs,
-                         const std::string& source, Temperature src_temp_hint,
-                         const std::string& destination, Temperature dst_temp,
-                         uint64_t size, bool use_fsync,
-                         const std::shared_ptr<IOTracer>& io_tracer) {
-  return CopyFile(fs.get(), source, src_temp_hint, destination, dst_temp, size,
-                  use_fsync, io_tracer);
-}
-IOStatus CreateFile(FileSystem* fs, const std::string& destination,
-                    const std::string& contents, bool use_fsync);
 
-inline IOStatus CreateFile(const std::shared_ptr<FileSystem>& fs,
-                           const std::string& destination,
-                           const std::string& contents, bool use_fsync) {
-  return CreateFile(fs.get(), destination, contents, use_fsync);
-}
-
-// Delete a DB file, if this file is a SST file or Blob file and SstFileManager
-// is used, it should have already been tracked by SstFileManager via its
-// `OnFileAdd` API before passing to this API to be deleted, to ensure
-// SstFileManager and its DeleteScheduler are tracking DB size and trash size
-// properly.
-Status DeleteDBFile(const ImmutableDBOptions* db_options,
-                    const std::string& fname, const std::string& path_to_sync,
-                    const bool force_bg, const bool force_fg);
-
-// TODO(hx235): pass the whole DBOptions intead of its individual fields
+// 生成文件校验和
 IOStatus GenerateOneFileChecksum(
     FileSystem* fs, const std::string& file_path,
     FileChecksumGenFactory* checksum_factory,
@@ -65,49 +40,27 @@ IOStatus GenerateOneFileChecksum(
     std::shared_ptr<IOTracer>& io_tracer, RateLimiter* rate_limiter,
     const ReadOptions& read_options, Statistics* stats, SystemClock* clock);
 
-inline IOStatus PrepareIOFromReadOptions(const ReadOptions& ro,
-                                         SystemClock* clock, IOOptions& opts) {
-  if (ro.deadline.count()) {
-    std::chrono::microseconds now =
-        std::chrono::microseconds(clock->NowMicros());
-    // Ensure there is atleast 1us available. We don't want to pass a value of
-    // 0 as that means no timeout
-    if (now >= ro.deadline) {
-      return IOStatus::TimedOut("Deadline exceeded");
-    }
-    opts.timeout = ro.deadline - now;
-  }
+// 根据读取选项准备 IO 选项
+IOStatus PrepareIOFromReadOptions(const ReadOptions& ro,
+                                  SystemClock* clock, IOOptions& opts);
 
-  if (ro.io_timeout.count() &&
-      (!opts.timeout.count() || ro.io_timeout < opts.timeout)) {
-    opts.timeout = ro.io_timeout;
-  }
+// 根据写入选项准备 IO 选项
+IOStatus PrepareIOFromWriteOptions(const WriteOptions& wo,
+                                   IOOptions& opts);
 
-  opts.rate_limiter_priority = ro.rate_limiter_priority;
-  opts.io_activity = ro.io_activity;
+// 删除数据库文件
+Status DeleteDBFile(const ImmutableDBOptions* db_options,
+                    const std::string& fname, const std::string& path_to_sync,
+                    const bool force_bg, const bool force_fg);
 
-  return IOStatus::OK();
-}
+// 创建文件
+IOStatus CreateFile(FileSystem* fs, const std::string& destination,
+                    const std::string& contents, bool use_fsync);
 
-inline IOStatus PrepareIOFromWriteOptions(const WriteOptions& wo,
-                                          IOOptions& opts) {
-  opts.rate_limiter_priority = wo.rate_limiter_priority;
-  opts.io_activity = wo.io_activity;
-
-  return IOStatus::OK();
-}
-
-// Test method to delete the input directory and all of its contents.
-// This method is destructive and is meant for use only in tests!!!
+// 销毁目录及其内容（仅用于测试）
 Status DestroyDir(Env* env, const std::string& dir);
 
-inline bool CheckFSFeatureSupport(FileSystem* fs, FSSupportedOps feat) {
-  int64_t supported_ops = 0;
-  fs->SupportedOps(supported_ops);
-  if (supported_ops & (1ULL << feat)) {
-    return true;
-  }
-  return false;
-}
+// 检查文件系统支持的功能
+inline bool CheckFSFeatureSupport(FileSystem* fs, FSSupportedOps feat);
 
 }  // namespace ROCKSDB_NAMESPACE
