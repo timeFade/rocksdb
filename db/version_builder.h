@@ -28,7 +28,18 @@ class Version;
 class VersionSet;
 class ColumnFamilyData;
 class CacheReservationManager;
+//  构建和管理数据库的版本信息。
 
+// 1. `VersionBuilder` 类：这是一个帮助类，用于在不创建中间版本的情况下，有效地应用一系列编辑操作到特定状态。它包含以下主要方法：
+//    - `CheckConsistencyForNumLevels`：检查版本的级别数量的一致性。
+//    - `Apply`：应用版本编辑到当前版本状态。
+//    - `SaveTo`：将当前状态保存到给定的 `VersionStorageInfo` 中。
+//    - `LoadTableHandlers`：加载表处理程序以处理版本的数据文件。
+//    - `GetMinOldestBlobFileNumber`：获取最旧的 Blob 文件编号。
+
+// 2. `BaseReferencedVersionBuilder` 类：这是 `VersionBuilder` 的一个包装类，它在构造函数中引用当前版本，并在析构函数中取消引用。这确保了在数据库的互斥锁内正确管理版本的生命周期。
+
+// 3. `NewestFirstBySeqNo` 结构体：这是一个比较器，用于按照序列号降序排列文件元数据。
 // A helper class so we can efficiently apply a whole sequence
 // of edits to a particular state without creating intermediate
 // Versions that contain full copies of the intermediate state.
