@@ -18,7 +18,11 @@
 #include "rocksdb/types.h"
 
 namespace ROCKSDB_NAMESPACE {
+// WalFileImpl 类：表示 WAL 文件的实现。它包含了 WAL 文件的一些基本属性，比如文件编号、类型、起始序列号和文件大小等，并提供了一些方法来获取这些属性。
 
+// TransactionLogIteratorImpl 类：事务日志迭代器的实现。它用于迭代读取事务日志中的写入批次（WriteBatch）。
+// 该类的构造函数接受一些参数，包括目录路径、不可变数据库选项、读取选项、环境选项、起始序列号、WAL 文件列表、版本集等，
+// 并提供了方法来检查迭代器是否有效、获取下一个写入批次、获取当前状态以及获取当前批次的结果等。
 class WalFileImpl : public WalFile {
  public:
   WalFileImpl(uint64_t logNum, WalFileType logType, SequenceNumber startSeq,
