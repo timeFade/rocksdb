@@ -32,6 +32,7 @@ class BlobFetcher;
 class PrefetchBufferCollection;
 struct CompactionIterationStats;
 
+// MergeHelper 类用于处理 RocksDB 的合并操作
 class MergeHelper {
  public:
   MergeHelper(Env* env, const Comparator* user_comparator,
@@ -42,16 +43,13 @@ class MergeHelper {
               Statistics* stats = nullptr,
               const std::atomic<bool>* shutting_down = nullptr);
 
-  // Wrappers around MergeOperator::FullMergeV3() that record perf statistics.
-  // Set `update_num_ops_stats` to true if it is from a user read so that
-  // the corresponding statistics are updated.
-  // Returns one of the following statuses:
-  // - OK: Entries were successfully merged.
-  // - Corruption: Merge operator reported unsuccessful merge. The scope of the
-  //   damage will be stored in `*op_failure_scope` when `op_failure_scope` is
-  //   not nullptr
+  // MergeOperator::FullMergeV3() 的包装器，用于记录性能统计数据。
+  // 如果是用户读取操作，设置 `update_num_ops_stats` 为 true，以便更新相应的统计数据。
+  // 返回以下状态之一：
+  // - OK: 条目合并成功。
+  // - Corruption: 合并操作符报告合并失败。当 `op_failure_scope` 不为 nullptr 时，损坏的范围将存储在 `*op_failure_scope` 中。
 
-  // Empty tag types to disambiguate overloads
+  // 空标签类型，用于区分重载
   struct NoBaseValueTag {};
   static constexpr NoBaseValueTag kNoBaseValue{};
 
@@ -61,6 +59,7 @@ class MergeHelper {
   struct WideBaseValueTag {};
   static constexpr WideBaseValueTag kWideBaseValue{};
 
+  // 无基础值的合并
   template <typename... ResultTs>
   static Status TimedFullMerge(const MergeOperator* merge_operator,
                                const Slice& key, NoBaseValueTag,
@@ -76,6 +75,7 @@ class MergeHelper {
         statistics, clock, update_num_ops_stats, op_failure_scope, results...);
   }
 
+  // 使用普通基础值的合并
   template <typename... ResultTs>
   static Status TimedFullMerge(
       const MergeOperator* merge_operator, const Slice& key, PlainBaseValueTag,
@@ -89,6 +89,7 @@ class MergeHelper {
         statistics, clock, update_num_ops_stats, op_failure_scope, results...);
   }
 
+  // 使用宽列基础值的合并
   template <typename... ResultTs>
   static Status TimedFullMerge(
       const MergeOperator* merge_operator, const Slice& key, WideBaseValueTag,
@@ -113,6 +114,7 @@ class MergeHelper {
         statistics, clock, update_num_ops_stats, op_failure_scope, results...);
   }
 
+  // 使用预先存在的宽列基础值的合并
   template <typename... ResultTs>
   static Status TimedFullMerge(const MergeOperator* merge_operator,
                                const Slice& key, WideBaseValueTag,
@@ -129,42 +131,34 @@ class MergeHelper {
         statistics, clock, update_num_ops_stats, op_failure_scope, results...);
   }
 
-  // During compaction, merge entries until we hit
-  //     - a corrupted key
-  //     - a Put/Delete,
-  //     - a different user key,
-  //     - a specific sequence number (snapshot boundary),
-  //     - REMOVE_AND_SKIP_UNTIL returned from compaction filter,
-  //  or - the end of iteration
+  // 在压缩期间，合并条目直到遇到以下情况之一：
+  // - 损坏的键
+  // - Put/Delete 操作
+  // - 不同的用户键
+  // - 特定的序列号（快照边界）
+  // - 从压缩过滤器返回的 REMOVE_AND_SKIP_UNTIL
+  // 或 - 迭代结束
   //
-  // The result(s) of the merge can be accessed in `MergeHelper::keys()` and
-  // `MergeHelper::values()`, which are invalidated the next time `MergeUntil()`
-  // is called. `MergeOutputIterator` is specially designed to iterate the
-  // results of a `MergeHelper`'s most recent `MergeUntil()`.
+  // 合并的结果可以通过 `MergeHelper::keys()` 和 `MergeHelper::values()` 访问，它们在下次调用 `MergeUntil()` 时无效。
+  // `MergeOutputIterator` 专为迭代 `MergeHelper` 的最新一次 `MergeUntil()` 结果而设计。
   //
-  // iter: (IN)  points to the first merge type entry
-  //       (OUT) points to the first entry not included in the merge process
-  // range_del_agg: (IN) filters merge operands covered by range tombstones.
-  // stop_before: (IN) a sequence number that merge should not cross.
-  //                   0 means no restriction
-  // at_bottom:   (IN) true if the iterator covers the bottem level, which means
-  //                   we could reach the start of the history of this user key.
-  // allow_data_in_errors: (IN) if true, data details will be displayed in
-  //                   error/log messages.
-  // blob_fetcher: (IN) blob fetcher object for the compaction's input version.
-  // prefetch_buffers: (IN/OUT) a collection of blob file prefetch buffers
-  //                            used for compaction readahead.
-  // c_iter_stats: (OUT) compaction iteration statistics.
+  // iter: (输入) 指向第一个合并类型条目
+  //       (输出) 指向未包含在合并过程中的第一个条目
+  // range_del_agg: (输入) 过滤被范围墓碑覆盖的合并操作数。
+  // stop_before: (输入) 合并不应跨越的序列号。0 表示没有限制
+  // at_bottom:   (输入) 如果迭代器覆盖底层级别，则为 true，这意味着我们可以达到此用户键的历史记录起点。
+  // allow_data_in_errors: (输入) 如果为 true，错误/日志消息中将显示数据详细信息。
+  // blob_fetcher: (输入) 用于压缩输入版本的 blob 提取器对象。
+  // prefetch_buffers: (输入/输出) 用于压缩预读的 blob 文件预取缓冲区集合。
+  // c_iter_stats: (输出) 压缩迭代统计信息。
   //
-  // Returns one of the following statuses:
-  // - OK: Entries were successfully merged.
-  // - MergeInProgress: Output consists of merge operands only.
-  // - Corruption: Merge operator reported unsuccessful merge or a corrupted
-  //   key has been encountered and not expected (applies only when compiling
-  //   with asserts removed).
-  // - ShutdownInProgress: interrupted by shutdown (*shutting_down == true).
+  // 返回以下状态之一：
+  // - OK: 条目合并成功。
+  // - MergeInProgress: 输出仅包含合并操作数。
+  // - Corruption: 合并操作符报告合并失败或遇到损坏的键且未预期（仅适用于删除断言时）。
+  // - ShutdownInProgress: 被关闭中断（*shutting_down == true）。
   //
-  // REQUIRED: The first key in the input is not corrupted.
+  // 必须: 输入的第一个键未损坏。
   Status MergeUntil(InternalIterator* iter,
                     CompactionRangeDelAggregator* range_del_agg,
                     const SequenceNumber stop_before, const bool at_bottom,
@@ -174,39 +168,31 @@ class MergeHelper {
                     PrefetchBufferCollection* prefetch_buffers,
                     CompactionIterationStats* c_iter_stats);
 
-  // Filters a merge operand using the compaction filter specified
-  // in the constructor. Returns the decision that the filter made.
-  // Uses compaction_filter_value_ and compaction_filter_skip_until_ for the
-  // optional outputs of compaction filter.
-  // user_key includes timestamp if user-defined timestamp is enabled.
+  // 使用构造函数中指定的压缩过滤器过滤合并操作数。返回过滤器的决策。
+  // 使用 compaction_filter_value_ 和 compaction_filter_skip_until_ 作为压缩过滤器的可选输出。
+  // user_key 包含时间戳（如果启用了用户定义的时间戳）。
   CompactionFilter::Decision FilterMerge(const Slice& user_key,
                                          const Slice& value_slice);
 
-  // Query the merge result
-  // These are valid until the next MergeUntil call
-  // If the merging was successful:
-  //   - keys() contains a single element with the latest sequence number of
-  //     the merges. The type will be Put or Merge. See IMPORTANT 1 note, below.
-  //   - values() contains a single element with the result of merging all the
-  //     operands together
+  // 查询合并结果
+  // 这些结果在下一次调用 MergeUntil 前有效
+  // 如果合并成功:
+  //   - keys() 包含具有合并最新序列号的单个元素。类型将是 Put 或 Merge。见下面的 "重要提示 1"。
+  //   - values() 包含将所有操作数合并在一起的单个元素的结果
   //
-  //   IMPORTANT 1: the key type could change after the MergeUntil call.
+  //   重要提示 1: 键类型可能会在 MergeUntil 调用后更改。
   //        Put/Delete + Merge + ... + Merge => Put
   //        Merge + ... + Merge => Merge
   //
-  // If the merge operator is not associative, and if a Put/Delete is not found
-  // then the merging will be unsuccessful. In this case:
-  //   - keys() contains the list of internal keys seen in order of iteration.
-  //   - values() contains the list of values (merges) seen in the same order.
-  //              values() is parallel to keys() so that the first entry in
-  //              keys() is the key associated with the first entry in values()
-  //              and so on. These lists will be the same length.
-  //              All of these pairs will be merges over the same user key.
-  //              See IMPORTANT 2 note below.
-  //
-  //   IMPORTANT 2: The entries were traversed in order from BACK to FRONT.
-  //                So keys().back() was the first key seen by iterator.
-  // TODO: Re-style this comment to be like the first one
+  // 如果合并操作符不是关联的，并且未找到 Put/Delete，则合并将失败。在这种情况下:
+  //   - keys() 包含按迭代顺序看到的内部键列表。
+  //   - values() 包含按相同顺序看到的值（合并）列表。
+  //              values() 与 keys() 并行，因此 keys()
+//              的第一个条目与 values() 的第一个条目对应，依此类推。这些列表将具有相同的长度。
+//              所有这些对将是同一个用户键的合并。
+//              见下面的 "重要提示 2"。
+//   重要提示 2: 条目是从后向前按顺序遍历的。
+//                因此，keys().back() 是迭代器看到的第一个键。
   const std::deque<std::string>& keys() const { return keys_; }
   const std::vector<Slice>& values() const {
     return merge_context_.GetOperands();
@@ -214,9 +200,8 @@ class MergeHelper {
   uint64_t TotalFilterTime() const { return total_filter_time_; }
   bool HasOperator() const { return user_merge_operator_ != nullptr; }
 
-  // If compaction filter returned REMOVE_AND_SKIP_UNTIL, this method will
-  // return true and fill *until with the key to which we should skip.
-  // If true, keys() and values() are empty.
+  // 如果压缩过滤器返回 REMOVE_AND_SKIP_UNTIL，则此方法将返回 true 并将 *until 填充为应跳过的键。
+  // 如果返回 true，则 keys() 和 values() 为空。
   bool FilteredUntil(Slice* skip_until) const {
     if (!has_compaction_filter_skip_until_) {
       return false;
@@ -236,18 +221,18 @@ class MergeHelper {
   const CompactionFilter* compaction_filter_;
   const std::atomic<bool>* shutting_down_;
   Logger* logger_;
-  bool assert_valid_internal_key_;  // enforce no internal key corruption?
+  bool assert_valid_internal_key_;  // 强制执行无内部键损坏？
   bool allow_single_operand_;
   SequenceNumber latest_snapshot_;
   const SnapshotChecker* const snapshot_checker_;
   int level_;
 
-  // the scratch area that holds the result of MergeUntil
-  // valid up to the next MergeUntil call
+  // 用于存储 MergeUntil 结果的临时区域
+  // 在下一次 MergeUntil 调用前有效
 
-  // Keeps track of the sequence of keys seen
+  // 跟踪看到的键序列
   std::deque<std::string> keys_;
-  // Parallel with keys_; stores the operands
+  // 与 keys_ 并行；存储操作数
   mutable MergeContext merge_context_;
 
   StopWatchNano filter_timer_;
@@ -259,7 +244,7 @@ class MergeHelper {
   InternalKey compaction_filter_skip_until_;
 
   bool IsShuttingDown() {
-    // This is a best-effort facility, so memory_order_relaxed is sufficient.
+    // 这是一个尽力而为的设施，因此 memory_order_relaxed 足够了。
     return shutting_down_ && shutting_down_->load(std::memory_order_relaxed);
   }
 
@@ -271,8 +256,7 @@ class MergeHelper {
       Statistics* statistics, SystemClock* clock, bool update_num_ops_stats,
       MergeOperator::OpFailureScope* op_failure_scope, Visitor&& visitor);
 
-  // Variant that exposes the merge result directly (in serialized form for wide
-  // columns) as well as its value type. Used by iterator and compaction.
+  // 变体，直接暴露合并结果（对于宽列以序列化形式）及其值类型。用于迭代器和压缩。
   static Status TimedFullMergeImpl(
       const MergeOperator* merge_operator, const Slice& key,
       MergeOperator::MergeOperationInputV3::ExistingValue&& existing_value,
@@ -281,10 +265,7 @@ class MergeHelper {
       MergeOperator::OpFailureScope* op_failure_scope, std::string* result,
       Slice* result_operand, ValueType* result_type);
 
-  // Variant that exposes the merge result translated into the form requested by
-  // the client. (For example, if the result is a wide-column structure but the
-  // client requested the results in plain-value form, the value of the default
-  // column is returned.) Used by point lookups.
+  // 变体，将合并结果转换为客户端请求的形式。（例如，如果结果是宽列结构但客户端请求的是普通值形式，则返回默认列的值。）用于点查找。
   static Status TimedFullMergeImpl(
       const MergeOperator* merge_operator, const Slice& key,
       MergeOperator::MergeOperationInputV3::ExistingValue&& existing_value,
@@ -294,15 +275,15 @@ class MergeHelper {
       std::string* result_value, PinnableWideColumns* result_entity);
 };
 
-// MergeOutputIterator can be used to iterate over the result of a merge.
+// MergeOutputIterator 可用于迭代合并的结果。
 class MergeOutputIterator {
  public:
-  // The MergeOutputIterator is bound to a MergeHelper instance.
+  // MergeOutputIterator 绑定到 MergeHelper 实例。
   explicit MergeOutputIterator(const MergeHelper* merge_helper);
 
-  // Seeks to the first record in the output.
+  // 定位到输出中的第一个记录。
   void SeekToFirst();
-  // Advances to the next record in the output.
+  // 前进到输出中的下一个记录。
   void Next();
 
   Slice key() { return Slice(*it_keys_); }
