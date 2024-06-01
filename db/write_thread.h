@@ -26,7 +26,13 @@
 #include "rocksdb/write_batch.h"
 #include "util/aligned_storage.h"
 #include "util/autovector.h"
+// 这段代码实现了 RocksDB 中的写线程（WriteThread）功能。在 RocksDB 中，写线程负责处理写操作，将写入请求组织成批次（batch）进行处理，以提高写入效率和性能。以下是主要功能：
 
+// 1. 管理写操作的批次处理：包括将待写入的数据分组成批次、并行写入到内存表（memtable）、并发写入到磁盘等。
+// 2. 处理写入停滞（Write Stall）：在写入速率过高或者某些情况下，写线程可以引入写入停滞，以控制写入的速率，防止过载。
+// 3. 线程同步和状态管理：使用互斥锁和条件变量来实现多线程间的同步和状态管理，确保写线程安全地处理写入请求。
+
+// 总体来说，这段代码是 RocksDB 内部核心功能的一部分，用于有效地处理写入请求，并确保数据的一致性和持久性。
 namespace ROCKSDB_NAMESPACE {
 
 class WriteThread {
