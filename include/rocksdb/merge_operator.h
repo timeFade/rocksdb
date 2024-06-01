@@ -1,7 +1,6 @@
-// Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under both the GPLv2 (found in the
-//  COPYING file in the root directory) and Apache 2.0 License
-//  (found in the LICENSE.Apache file in the root directory).
+// 版权所有（c）2011至今，Facebook，Inc。 保留所有权利。
+// 本源代码受GPLv2（在根目录中的COPYING文件中找到）和Apache 2.0许可证
+// （在根目录中的LICENSE.Apache文件中找到）的双重许可证
 
 #pragma once
 
@@ -21,35 +20,21 @@ namespace ROCKSDB_NAMESPACE {
 class Slice;
 class Logger;
 
-// The Merge Operator
+// 合并操作符
 //
-// Essentially, a MergeOperator specifies the SEMANTICS of a merge, which only
-// client knows. It could be numeric addition, list append, string
-// concatenation, edit data structure, ... , anything.
-// The library, on the other hand, is concerned with the exercise of this
-// interface, at the right time (during get, iteration, compaction...)
+// 本质上，合并操作符指定了合并的语义，这仅客户端知道。它可以是数字添加、列表追加、字符串连接、编辑数据结构等等，任何内容。
+// 另一方面，库关心的是在正确的时间（在获取、迭代、压实期间等）对此接口进行操作。
 //
-// To use merge, the client needs to provide an object implementing one of
-// the following interfaces:
-//  a) AssociativeMergeOperator - for most simple semantics (always take
-//    two values, and merge them into one value, which is then put back
-//    into rocksdb); numeric addition and string concatenation are examples;
+// 要使用合并，客户端需要提供一个实现以下接口之一的对象：
+//  a) AssociativeMergeOperator - 用于大多数简单语义（始终获取两个值，并将它们合并为一个值，然后将其放回rocksdb）；数字添加和字符串连接是示例；
 //
-//  b) MergeOperator - the generic class for all the more abstract / complex
-//    operations; one method (FullMergeV3) to merge a Put/Delete value with a
-//    merge operand; and another method (PartialMerge) that merges multiple
-//    operands together. this is especially useful if your key values have
-//    complex structures but you would still like to support client-specific
-//    incremental updates.
+//  b) MergeOperator - 用于所有更抽象/复杂操作的通用类；一个方法（FullMergeV3）用于将Put/Delete值与合并操作数合并；另一个方法（PartialMerge）用于将多个操作数合并在一起。如果您的键值具有复杂结构但仍希望支持客户端特定的增量更新，则这尤其有用。
 //
-// AssociativeMergeOperator is simpler to implement. MergeOperator is simply
-// more powerful.
+// AssociativeMergeOperator更容易实现。MergeOperator更强大。
 //
-// Refer to rocksdb-merge wiki for more details and example implementations.
+// 有关更多详细信息和示例实现，请参阅rocksdb-merge wiki。
 //
-// Exceptions MUST NOT propagate out of overridden functions into RocksDB,
-// because RocksDB is not exception-safe. This could cause undefined behavior
-// including data loss, unreported corruption, deadlocks, and more.
+// 异常绝对不得传播出覆盖的函数进入RocksDB，因为RocksDB不具有异常安全性。这可能导致未定义的行为，包括数据丢失、未报告的损坏、死锁等等。
 class MergeOperator : public Customizable {
  public:
   virtual ~MergeOperator() {}
@@ -58,34 +43,28 @@ class MergeOperator : public Customizable {
                                  const std::string& id,
                                  std::shared_ptr<MergeOperator>* result);
 
-  // Gives the client a way to express the read -> modify -> write semantics
-  // key:      (IN)    The key that's associated with this merge operation.
-  //                   Client could multiplex the merge operator based on it
-  //                   if the key space is partitioned and different subspaces
-  //                   refer to different types of data which have different
-  //                   merge operation semantics
-  // existing: (IN)    null indicates that the key does not exist before this op
-  // operand_list:(IN) the sequence of merge operations to apply, front() first.
-  // new_value:(OUT)   Client is responsible for filling the merge result here.
-  // The string that new_value is pointing to will be empty.
-  // logger:   (IN)    Client could use this to log errors during merge.
+  // 给客户端提供一种表达读->修改->写语义的方法
+  // key:          (IN) 与此合并操作关联的键。如果键空间被分区，并且不同的子空间引用具有不同合并操作语义的不同类型的数据，则客户端可以基于它复用合并操作符
+  // existing:  (IN)  null表示此操作之前键不存在
+  // operand_list:(IN) 要应用的合并操作的序列，front()优先。
+  // new_value:(OUT)   客户端负责在此处填充合并结果。
+  // new_value指向的字符串将为空。
+  // logger:   (IN)   客户端可以在合并期间使用此选项记录错误。
   //
-  // Return true on success.
-  // All values passed in will be client-specific values. So if this method
-  // returns false, it is because client specified bad data or there was
-  // internal corruption. This will be treated as an error by the library.
+  // 返回true表示成功。
+  // 传递的所有值都将是特定于客户端的值。因此，如果此方法返回false，则是因为客户端指定了错误的数据或存在内部损坏。库将将其视为错误处理。
   //
-  // Also make use of the *logger for error messages.
+  // 也使用*logger记录错误消息。
   virtual bool FullMerge(const Slice& /*key*/, const Slice* /*existing_value*/,
                          const std::deque<std::string>& /*operand_list*/,
                          std::string* /*new_value*/, Logger* /*logger*/) const {
-    // deprecated, please use FullMergeV2()
+    // 不推荐使用，请使用FullMergeV2()
     assert(false);
     return false;
   }
 
   struct MergeOperationInput {
-    // If user-defined timestamp is enabled, `_key` includes timestamp.
+    // 如果启用了用户定义的时间戳，则`_key`包括时间戳。
     explicit MergeOperationInput(const Slice& _key,
                                  const Slice* _existing_value,
                                  const std::vector<Slice>& _operand_list,
@@ -95,15 +74,13 @@ class MergeOperator : public Customizable {
           operand_list(_operand_list),
           logger(_logger) {}
 
-    // The key associated with the merge operation.
+    // 与合并操作关联的键。
     const Slice& key;
-    // The existing value of the current key, nullptr means that the
-    // value doesn't exist.
+    // 当前键的现有值，nullptr表示该值在此之前不存在。
     const Slice* existing_value;
-    // A list of operands to apply.
+    // 要应用的操作数列表。
     const std::vector<Slice>& operand_list;
-    // Logger could be used by client to log any errors that happen during
-    // the merge operation.
+    // 客户端在合并操作期间记录任何错误的logger。
     Logger* logger;
   };
 
@@ -119,45 +96,29 @@ class MergeOperator : public Customizable {
                                   Slice& _existing_operand)
         : new_value(_new_value), existing_operand(_existing_operand) {}
 
-    // Client is responsible for filling the merge result here.
+    // 客户端负责在此处填充合并结果。
     std::string& new_value;
-    // If the merge result is one of the existing operands (or existing_value),
-    // client can set this field to the operand (or existing_value) instead of
-    // using new_value.
+    // 如果合并结果是现有操作数之一（或现有值），客户端可以将此字段设置为操作数（或现有值），而不是使用new_value。
     Slice& existing_operand;
-    // Indicates the blast radius of the failure. It is only meaningful to
-    // provide a failure scope when returning `false` from the API populating
-    // the `MergeOperationOutput`. Currently RocksDB operations handle these
-    // values as follows:
+    // 指示故障的波及范围。仅在从填充`MergeOperationOutput`的API中返回`false`时才有意义。
+    // 当返回`false`时，RocksDB操作将以下列方式处理这些值：
     //
-    // - `OpFailureScope::kDefault`: fallback to default
-    //   (`OpFailureScope::kTryMerge`)
-    // - `OpFailureScope::kTryMerge`: operations that try to merge that key will
-    //   fail. This includes flush and compaction, which puts the DB in
-    //   read-only mode.
-    // - `OpFailureScope::kMustMerge`: operations that must merge that key will
-    //   fail (e.g., `Get()`, `MultiGet()`, iteration). Flushes/compactions can
-    //   still proceed by copying the original input operands to the output.
+    // - `OpFailureScope::kDefault`：退回到默认值（`OpFailureScope::kTryMerge`）
+    // - `OpFailureScope::kTryMerge`：尝试合并该键的操作将失败。这包括将DB置于只读模式的刷新和压实。
+    // - `OpFailureScope::kMustMerge`：必须合并该键的操作将失败（例如，`Get()`、`MultiGet()`、迭代）。刷新/压实仍然可以通过将原始输入操作数复制到输出来进行。
     OpFailureScope op_failure_scope = OpFailureScope::kDefault;
   };
 
-  // This function applies a stack of merge operands in chronological order
-  // on top of an existing value. There are two ways in which this method is
-  // being used:
-  // a) During Get() operation, it used to calculate the final value of a key
-  // b) During compaction, in order to collapse some operands with the based
-  //    value.
+  // 这个函数按照时间顺序在现有值的基础上应用一堆合并操作。此方法有两种使用方式：
+  // a) 在Get()操作期间，用于计算键的最终值
+  // b) 在压实期间，为了将一些操作数与基础值折叠在一起。
   //
-  // Note: The name of the method is somewhat misleading, as both in the cases
-  // of Get() or compaction it may be called on a subset of operands:
+  // 注意：方法的名称有点误导，因为无论在Get()还是压实的情况下，它都可能被调用在操作数的子集上：
   // K:    0    +1    +2    +7    +4     +5      2     +1     +2
   //                              ^
   //                              |
-  //                          snapshot
-  // In the example above, Get(K) operation will call FullMerge with a base
-  // value of 2 and operands [+1, +2]. Compaction process might decide to
-  // collapse the beginning of the history up to the snapshot by performing
-  // full Merge with base value of 0 and operands [+1, +2, +7, +4].
+  //                          快照
+  // 在上面的示例中，Get(K)操作将使用基值为2和操作数[+1，+2]调用FullMerge。压实过程可能决定通过使用基值为0和操作数[+1，+2，+7，+4]来折叠历史的开始，从而执行完整的Merge。
   virtual bool FullMergeV2(const MergeOperationInput& merge_in,
                            MergeOperationOutput* merge_out) const;
 
@@ -174,15 +135,13 @@ class MergeOperator : public Customizable {
           operand_list(_operand_list),
           logger(_logger) {}
 
-    // The user key, including the user-defined timestamp if applicable.
+    // 用户键，包括用户定义的时间戳（如果适用）。
     const Slice& key;
-    // The base value of the merge operation. Can be one of three things (see
-    // the ExistingValue variant above): no existing value, plain existing
-    // value, or wide-column existing value.
+    // 合并操作的基值。可以是三种情况之一（请参见上面的ExistingValue变体）：没有现有值，纯现有值或宽列现有值。
     ExistingValue existing_value;
-    // The list of operands to apply.
+    // 要应用的操作数列表。
     const OperandList& operand_list;
-    // The logger to use in case a failure happens during the merge operation.
+    // 在合并操作期间发生故障时使用的日志记录器。
     Logger* logger;
   };
 
@@ -190,56 +149,29 @@ class MergeOperator : public Customizable {
     using NewColumns = std::vector<std::pair<std::string, std::string>>;
     using NewValue = std::variant<std::string, NewColumns, Slice>;
 
-    // The result of the merge operation. Can be one of three things (see the
-    // NewValue variant above): a new plain value, a new wide-column value, or
-    // an existing merge operand.
+    // 合并操作的结果。可以是三种情况之一（请参见上面的NewValue变体）：新的纯值，新的宽列值或现有的合并操作数。
     NewValue new_value;
-    // The scope of the failure if applicable. See above for more details.
+    // 如果适用，故障的作用域。更多细节见上文。
     OpFailureScope op_failure_scope = OpFailureScope::kDefault;
   };
 
-  // An extended version of FullMergeV2() that supports wide columns on both the
-  // input and the output side, enabling the application to perform general
-  // transformations during merges. For backward compatibility, the default
-  // implementation calls FullMergeV2(). Specifically, if there is no base value
-  // or the base value is a plain key-value, the default implementation falls
-  // back to FullMergeV2(). If the base value is a wide-column entity, the
-  // default implementation invokes FullMergeV2() to perform the merge on the
-  // default column, and leaves any other columns unchanged.
+  // 支持在输入和输出端上使用宽列的FullMergeV3()的扩展版本，使应用能够在合并期间执行通用转换。为了向后兼容，默认实现调用FullMergeV2()。具体来说，如果没有基值或基值是键值，则默认实现将回退到FullMergeV2()。如果基值是宽列实体，则默认实现将调用FullMergeV2()来对默认列执行合并，并保持其他列不变。
   virtual bool FullMergeV3(const MergeOperationInputV3& merge_in,
                            MergeOperationOutputV3* merge_out) const;
 
-  // This function performs merge(left_op, right_op)
-  // when both the operands are themselves merge operation types
-  // that you would have passed to a DB::Merge() call in the same order
-  // (i.e.: DB::Merge(key,left_op), followed by DB::Merge(key,right_op)).
+  // 当两个操作数本身都是您将在相同顺序传递给DB::Merge()调用的合并操作类型时，此函数执行merge(left_op，right_op)。
+  // （即：DB::Merge(key，left_op)，然后是DB::Merge(key，right_op)）。
   //
-  // PartialMerge should combine them into a single merge operation that is
-  // saved into *new_value, and then it should return true.
-  // *new_value should be constructed such that a call to
-  // DB::Merge(key, *new_value) would yield the same result as a call
-  // to DB::Merge(key, left_op) followed by DB::Merge(key, right_op).
+  // PartialMerge应该将它们组合成一个合并操作，保存到*new_value中，然后返回true。
+  // *new_value应构造成调用DB::Merge(key，*new_value)将产生与调用DB::Merge(key，left_op)然后调用DB::Merge(key，right_op)相同的结果。
   //
-  // The string that new_value is pointing to will be empty.
+  // new_value指向的字符串将为空。
   //
-  // The default implementation of PartialMergeMulti will use this function
-  // as a helper, for backward compatibility.  Any successor class of
-  // MergeOperator should either implement PartialMerge or PartialMergeMulti,
-  // although implementing PartialMergeMulti is suggested as it is in general
-  // more effective to merge multiple operands at a time instead of two
-  // operands at a time.
+  // PartialMergeMulti的默认实现将使用此函数作为帮助器，以确保向后兼容。MergeOperator的任何后继类都应该实现PartialMerge或PartialMergeMulti，尽管建议实现PartialMergeMulti，因为一次合并多个操作数通常比一次合并两个操作数更有效。
   //
-  // If it is impossible or infeasible to combine the two operations,
-  // leave new_value unchanged and return false. The library will
-  // internally keep track of the operations, and apply them in the
-  // correct order once a base-value (a Put/Delete/End-of-Database) is seen.
+  // 如果无法或不可行地合并两个操作，则将new_value保持不变，并返回false。库将在看到基值（Put/Delete/数据库末尾）后，内部跟踪操作，并按正确的顺序应用它们。
   //
-  // TODO: Presently there is no way to differentiate between error/corruption
-  // and simply "return false". For now, the client should simply return
-  // false in any case it cannot perform partial-merge, regardless of reason.
-  // If there is corruption in the data, handle it in the FullMergeV3() function
-  // and return false there.  The default implementation of PartialMerge will
-  // always return false.
+  // 注意：目前没有办法区分错误/损坏和简单的“返回false”。暂时，客户端应该在无法执行部分合并的任何情况下返回false，无论原因如何。如果数据存在损坏，请在FullMergeV3()函数中处理它并在那里返回false。PartialMerge的默认实现将始终返回false。
   virtual bool PartialMerge(const Slice& /*key*/, const Slice& /*left_operand*/,
                             const Slice& /*right_operand*/,
                             std::string* /*new_value*/,
@@ -247,85 +179,60 @@ class MergeOperator : public Customizable {
     return false;
   }
 
-  // This function performs merge when all the operands are themselves merge
-  // operation types that you would have passed to a DB::Merge() call in the
-  // same order (front() first)
-  // (i.e. DB::Merge(key, operand_list[0]), followed by
-  //  DB::Merge(key, operand_list[1]), ...)
+  // 当所有操作数本身都是您将在相同顺序传递给DB::Merge()调用的合并操作类型时，此函数执行合并。
+  // （即DB::Merge(key，operand_list[0])，然后是DB::Merge(key，operand_list[1])，...）
   //
-  // PartialMergeMulti should combine them into a single merge operation that is
-  // saved into *new_value, and then it should return true.  *new_value should
-  // be constructed such that a call to DB::Merge(key, *new_value) would yield
-  // the same result as sequential individual calls to DB::Merge(key, operand)
-  // for each operand in operand_list from front() to back().
+  // PartialMergeMulti应将它们组合成一个合并操作，保存到*new_value中，然后返回true。*new_value应构造成调用DB::Merge(key，*new_value)将产生与为operand_list中的每个操作数依次调用DB::Merge(key，operand)相同的结果。
   //
-  // The string that new_value is pointing to will be empty.
+  // new_value指向的字符串将为空。
   //
-  // The PartialMergeMulti function will be called when there are at least two
-  // operands.
+  // 当存在至少两个操作数时，将调用PartialMergeMulti函数。
   //
-  // In the default implementation, PartialMergeMulti will invoke PartialMerge
-  // multiple times, where each time it only merges two operands.  Developers
-  // should either implement PartialMergeMulti, or implement PartialMerge which
-  // is served as the helper function of the default PartialMergeMulti.
+  // 在默认实现中，PartialMergeMulti将多次调用PartialMerge，其中每次仅合并两个操作数。开
+  // 发者应该实现PartialMergeMulti，或者实现PartialMerge作为默认PartialMergeMulti的辅助函数。
   virtual bool PartialMergeMulti(const Slice& key,
                                  const std::deque<Slice>& operand_list,
                                  std::string* new_value, Logger* logger) const;
 
-  // The name of the MergeOperator. Used to check for MergeOperator
-  // mismatches (i.e., a DB created with one MergeOperator is
-  // accessed using a different MergeOperator)
-  // TODO: the name is currently not stored persistently and thus
-  //       no checking is enforced. Client is responsible for providing
-  //       consistent MergeOperator between DB opens.
+  // MergeOperator的名称。用于检查MergeOperator是否不匹配（即，使用一个MergeOperator创建的DB是否使用不同的MergeOperator访问）
+  // TODO：当前名称未持久存储，因此没有强制执行检查。客户端负责在DB打开之间提供一致的MergeOperator。
   const char* Name() const override = 0;
 
-  // Determines whether the PartialMerge can be called with just a single
-  // merge operand.
-  // Override and return true for allowing a single operand. PartialMerge
-  // and PartialMergeMulti should be overridden and implemented
-  // correctly to properly handle a single operand.
+  // 确定是否可以只使用单个合并操作数调用PartialMerge。
+  // 覆盖并返回true以允许单个操作数。PartialMerge和PartialMergeMulti应该被覆盖和正确实现以正确处理单个操作数。
   virtual bool AllowSingleOperand() const { return false; }
 
-  // Allows to control when to invoke a full merge during Get.
-  // This could be used to limit the number of merge operands that are looked at
-  // during a point lookup, thereby helping in limiting the number of levels to
-  // read from.
-  // Doesn't help with iterators.
+  // 允许控制在Get期间何时调用完整合并。
+  // 这可以用于限制在点查找期间查看的合并操作数的数量，从而有助于限制从中读取的级别数量。
+  // 不适用于迭代器。
   //
-  // Note: the merge operands are passed to this function in the reversed order
-  // relative to how they were merged (passed to
-  // FullMerge/FullMergeV2/FullMergeV3) for performance reasons, see also:
+  // 注意：出于性能原因，合并操作数以与它们合并的方式相对于它们合并的顺序相反的顺序传递给此函数，请参见：
   // https://github.com/facebook/rocksdb/issues/3865
   virtual bool ShouldMerge(const std::vector<Slice>& /*operands*/) const {
     return false;
   }
 };
 
-// The simpler, associative merge operator.
+// 更简单的，关联的合并操作符。
 class AssociativeMergeOperator : public MergeOperator {
  public:
   ~AssociativeMergeOperator() override {}
 
-  // Gives the client a way to express the read -> modify -> write semantics
-  // key:           (IN) The key that's associated with this merge operation.
-  // existing_value:(IN) null indicates the key does not exist before this op
-  // value:         (IN) the value to update/merge the existing_value with
-  // new_value:    (OUT) Client is responsible for filling the merge result
-  // here. The string that new_value is pointing to will be empty.
-  // logger:        (IN) Client could use this to log errors during merge.
+  // 给客户端提供一种表达读->修改->写语义的方法
+  // key:           (IN) 与此合并操作关联的键。
+  // existing_value:(IN) null表示在此操作之前键不存在
+  // value:         (IN) 要更新/合并existing_value的值
+  // new_value:    (OUT) 客户端负责在此处填充合并结果。new_value指向的字符串将为空。
+  // logger:        (IN) 客户端可以在合并期间使用此选项记录错误。
   //
-  // Return true on success.
-  // All values passed in will be client-specific values. So if this method
-  // returns false, it is because client specified bad data or there was
-  // internal corruption. The client should assume that this will be treated
-  // as an error by the library.
+  // 返回true表示成功。
+  // 传递的所有值都将是客户端特定的值。因此，如果此方法返回false，则是因为客户端指定了错误的数据或存在内部损坏。客户端应假设库会将其视为错误处理。
   virtual bool Merge(const Slice& key, const Slice* existing_value,
                      const Slice& value, std::string* new_value,
                      Logger* logger) const = 0;
 
  private:
-  // Default implementations of the MergeOperator functions
+  // MergeOperator函数的默认实现
   bool FullMergeV2(const MergeOperationInput& merge_in,
                    MergeOperationOutput* merge_out) const override;
 
