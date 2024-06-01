@@ -21,6 +21,9 @@ class Logger;
 
 // SstFileManager is used to track SST and blob files in the DB and control
 // their deletion rate. All SstFileManager public functions are thread-safe.
+// 它用于跟踪数据库中的 SST 和 blob 文件，并控制它们的删除速率。
+// SstFileManagerImpl 类是 RocksDB 中用于跟踪和管理 SST 和 blob 文件的实现类。它提供了一系列线程安全的方法，用于添加、删除、移动文件，
+// 并控制这些文件的删除速率。该类还可以设置和检查最大允许的空间使用，管理压缩操作所需的空间，处理磁盘空间不足的错误，并提供垃圾文件的管理功能
 class SstFileManagerImpl : public SstFileManager {
  public:
   explicit SstFileManagerImpl(const std::shared_ptr<SystemClock>& clock,
