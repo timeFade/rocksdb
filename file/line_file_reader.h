@@ -10,50 +10,47 @@
 
 namespace ROCKSDB_NAMESPACE {
 
-// A wrapper on top of Env::SequentialFile for reading text lines from a file.
-// Lines are delimited by '\n'. The last line may or may not include a
-// trailing newline. Uses SequentialFileReader internally.
+// 一个在 Env::SequentialFile 之上的包装器，用于从文件中读取文本行。
+// 行以 '\n' 为分隔符。最后一行可能包含或不包含尾随的换行符。
+// 在内部使用 SequentialFileReader。
 class LineFileReader {
  private:
-  std::array<char, 8192> buf_;
-  SequentialFileReader sfr_;
-  IOStatus io_status_;
-  const char* buf_begin_ = buf_.data();
-  const char* buf_end_ = buf_.data();
-  size_t line_number_ = 0;
-  bool at_eof_ = false;
+  std::array<char, 8192> buf_;  // 用于缓存读取的数据
+  SequentialFileReader sfr_;     // 顺序文件读取器
+  IOStatus io_status_;           // 读取操作的IO状态
+  const char* buf_begin_ = buf_.data();  // 缓冲区开始位置
+  const char* buf_end_ = buf_.data();    // 缓冲区结束位置
+  size_t line_number_ = 0;        // 当前读取的行数
+  bool at_eof_ = false;           // 是否已到达文件末尾
 
  public:
-  // See SequentialFileReader constructors
+  // 参见 SequentialFileReader 构造函数
   template <typename... Args>
   explicit LineFileReader(Args&&... args)
       : sfr_(std::forward<Args&&>(args)...) {}
 
+  // 创建 LineFileReader 实例
   static IOStatus Create(const std::shared_ptr<FileSystem>& fs,
                          const std::string& fname, const FileOptions& file_opts,
                          std::unique_ptr<LineFileReader>* reader,
                          IODebugContext* dbg, RateLimiter* rate_limiter);
 
-  LineFileReader(const LineFileReader&) = delete;
-  LineFileReader& operator=(const LineFileReader&) = delete;
+  LineFileReader(const LineFileReader&) = delete;  // 禁止拷贝构造函数
+  LineFileReader& operator=(const LineFileReader&) = delete;  // 禁止赋值操作符重载
 
-  // Reads another line from the file, returning true on success and saving
-  // the line to `out`, without delimiter, or returning false on failure. You
-  // must check GetStatus() to determine whether the failure was just
-  // end-of-file (OK status) or an I/O error (another status).
-  // The internal rate limiter will be charged at the specified priority.
+  // 从文件中读取另一行，成功时返回 true 并将行保存到 `out` 中（不包含分隔符），
+  // 失败时返回 false。您必须检查 GetStatus() 来确定失败是因为仅到达文件末尾（OK 状态），
+  // 还是因为 I/O 错误（其他状态）。
+  // 内部的速率限制器将按指定的优先级计费。
   bool ReadLine(std::string* out, Env::IOPriority rate_limiter_priority);
 
-  // Returns the number of the line most recently returned from ReadLine.
-  // Return value is unspecified if ReadLine has returned false due to
-  // I/O error. After ReadLine returns false due to end-of-file, return
-  // value is the last returned line number, or equivalently the total
-  // number of lines returned.
+  // 返回最近从 ReadLine 返回的行号。
+  // 如果 ReadLine 由于 I/O 错误返回 false，则返回值未指定。
+  // 在由于到达文件末尾而导致的 ReadLine 返回 false 后，返回值是最后返回的行号，
+  // 或等价地，返回的总行数。
   size_t GetLineNumber() const { return line_number_; }
 
-  // Returns any error encountered during read. The error is considered
-  // permanent and no retry or recovery is attempted with the same
-  // LineFileReader.
+  // 返回读取过程中遇到的任何错误。错误被视为永久性的，不会尝试使用相同的 LineFileReader 进行重试或恢复。
   const IOStatus& GetStatus() const { return io_status_; }
 };
 
