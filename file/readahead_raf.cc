@@ -19,8 +19,11 @@
 
 namespace ROCKSDB_NAMESPACE {
 namespace {
+
+// ReadaheadRandomAccessFile 类是 FSRandomAccessFile 的子类，增加了预读功能。
 class ReadaheadRandomAccessFile : public FSRandomAccessFile {
  public:
+  // 构造函数，初始化成员变量并分配预读缓冲区。
   ReadaheadRandomAccessFile(std::unique_ptr<FSRandomAccessFile>&& file,
                             size_t readahead_size)
       : file_(std::move(file)),
@@ -37,10 +40,11 @@ class ReadaheadRandomAccessFile : public FSRandomAccessFile {
   ReadaheadRandomAccessFile& operator=(const ReadaheadRandomAccessFile&) =
       delete;
 
+  // 重写 Read 函数，首先尝试从缓冲区读取数据，如果缓存未命中，则从文件读取并填充缓冲区。
   IOStatus Read(uint64_t offset, size_t n, const IOOptions& options,
                 Slice* result, char* scratch,
                 IODebugContext* dbg) const override {
-    // Read-ahead only make sense if we have some slack left after reading
+    // 只有在剩余空间足够时才进行预读
     if (n + alignment_ >= readahead_size_) {
       return file_->Read(offset, n, options, result, scratch, dbg);
     }
@@ -48,24 +52,20 @@ class ReadaheadRandomAccessFile : public FSRandomAccessFile {
     std::unique_lock<std::mutex> lk(lock_);
 
     size_t cached_len = 0;
-    // Check if there is a cache hit, meaning that [offset, offset + n) is
-    // either completely or partially in the buffer. If it's completely cached,
-    // including end of file case when offset + n is greater than EOF, then
-    // return.
+    // 检查缓存是否命中，如果命中则从缓存读取数据
     if (TryReadFromCache(offset, n, &cached_len, scratch) &&
         (cached_len == n || buffer_.CurrentSize() < readahead_size_)) {
-      // We read exactly what we needed, or we hit end of file - return.
+      // 如果完全命中或已到达文件末尾，返回
       *result = Slice(scratch, cached_len);
       return IOStatus::OK();
     }
     size_t advanced_offset = static_cast<size_t>(offset + cached_len);
-    // In the case of cache hit advanced_offset is already aligned, means that
-    // chunk_offset equals to advanced_offset
+    // 对齐偏移量
     size_t chunk_offset = TruncateToPageBoundary(alignment_, advanced_offset);
 
     IOStatus s = ReadIntoBuffer(chunk_offset, readahead_size_, options, dbg);
     if (s.ok()) {
-      // The data we need is now in cache, so we can safely read it
+      // 数据已缓存，读取缓存中的数据
       size_t remaining_len;
       TryReadFromCache(advanced_offset, n - cached_len, &remaining_len,
                        scratch + cached_len);
@@ -74,11 +74,11 @@ class ReadaheadRandomAccessFile : public FSRandomAccessFile {
     return s;
   }
 
+  // 预取数据，将数据填充到缓存中
   IOStatus Prefetch(uint64_t offset, size_t n, const IOOptions& options,
                     IODebugContext* dbg) override {
     if (n < readahead_size_) {
-      // Don't allow smaller prefetches than the configured `readahead_size_`.
-      // `Read()` assumes a smaller prefetch buffer indicates EOF was reached.
+      // 不允许比预读大小小的预取操作
       return IOStatus::OK();
     }
 
@@ -94,25 +94,26 @@ class ReadaheadRandomAccessFile : public FSRandomAccessFile {
                           options, dbg);
   }
 
+  // 获取文件的唯一ID
   size_t GetUniqueId(char* id, size_t max_size) const override {
     return file_->GetUniqueId(id, max_size);
   }
 
+  // 设置文件访问模式的提示
   void Hint(AccessPattern pattern) override { file_->Hint(pattern); }
 
+  // 使缓存失效
   IOStatus InvalidateCache(size_t offset, size_t length) override {
     std::unique_lock<std::mutex> lk(lock_);
     buffer_.Clear();
     return file_->InvalidateCache(offset, length);
   }
 
+  // 是否使用直接IO
   bool use_direct_io() const override { return file_->use_direct_io(); }
 
  private:
-  // Tries to read from buffer_ n bytes starting at offset. If anything was read
-  // from the cache, it sets cached_len to the number of bytes actually read,
-  // copies these number of bytes to scratch and returns true.
-  // If nothing was read sets cached_len to 0 and returns false.
+  // 尝试从缓存读取数据，返回是否命中缓存
   bool TryReadFromCache(uint64_t offset, size_t n, size_t* cached_len,
                         char* scratch) const {
     if (offset < buffer_offset_ ||
@@ -127,9 +128,7 @@ class ReadaheadRandomAccessFile : public FSRandomAccessFile {
     return true;
   }
 
-  // Reads into buffer_ the next n bytes from file_ starting at offset.
-  // Can actually read less if EOF was reached.
-  // Returns the status of the read operastion on the file.
+  // 将数据读取到缓冲区
   IOStatus ReadIntoBuffer(uint64_t offset, size_t n, const IOOptions& options,
                           IODebugContext* dbg) const {
     if (n > buffer_.Capacity()) {
@@ -148,18 +147,23 @@ class ReadaheadRandomAccessFile : public FSRandomAccessFile {
     return s;
   }
 
+  // 被封装的底层文件
   const std::unique_ptr<FSRandomAccessFile> file_;
+  // 文件系统对齐要求
   const size_t alignment_;
+  // 预读大小
   const size_t readahead_size_;
 
   mutable std::mutex lock_;
-  // The buffer storing the prefetched data
+  // 缓存的预读数据
   mutable AlignedBuffer buffer_;
-  // The offset in file_, corresponding to data stored in buffer_
+  // 缓存数据对应的文件偏移量
   mutable uint64_t buffer_offset_;
 };
+
 }  // namespace
 
+// 创建带预读功能的随机访问文件
 std::unique_ptr<FSRandomAccessFile> NewReadaheadRandomAccessFile(
     std::unique_ptr<FSRandomAccessFile>&& file, size_t readahead_size) {
   std::unique_ptr<FSRandomAccessFile> result(
