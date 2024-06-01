@@ -30,6 +30,10 @@ class SystemClock;
 //
 // Rate limiting can be turned off by setting rate_bytes_per_sec = 0, In this
 // case DeleteScheduler will delete files immediately.
+// 这个类实现了删除调度器的功能。删除调度器允许数据库对文件删除施加速率限制，而不是立即删除文件，而是将文件标记为垃圾，
+// 并在后台线程中进行删除，如果删除速率快于 rate_bytes_per_sec，则在删除之间应用睡眠惩罚。
+
+// 如果需要，可以通过将 rate_bytes_per_sec 设置为 0 来关闭速率限制。在这种情况下，删除调度器将立即删除文件。
 class DeleteScheduler {
  public:
   DeleteScheduler(SystemClock* clock, FileSystem* fs,
