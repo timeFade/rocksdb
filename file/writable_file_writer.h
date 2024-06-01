@@ -29,11 +29,11 @@ class SystemClock;
 
 // WritableFileWriter is a wrapper on top of Env::WritableFile. It provides
 // facilities to:
-// - Handle Buffered and Direct writes.
-// - Rate limit writes.
-// - Flush and Sync the data to the underlying filesystem.
-// - Notify any interested listeners on the completion of a write.
-// - Update IO stats.
+// - Handle Buffered and Direct writes.   处理缓冲区和直接写
+// - Rate limit writes.  写入速率限制
+// - Flush and Sync the data to the underlying filesystem. 刷新和同步数据到底层文件
+// - Notify any interested listeners on the completion of a write. 在写入完成后通知其他监听器
+// - Update IO stats. 更新IO状态
 class WritableFileWriter {
  private:
   void NotifyOnFileWriteFinish(
