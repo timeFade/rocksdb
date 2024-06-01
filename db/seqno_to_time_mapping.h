@@ -3,7 +3,13 @@
 //  This source code is licensed under both the GPLv2 (found in the
 //  COPYING file in the root directory) and Apache 2.0 License
 //  (found in the LICENSE.Apache file in the root directory).
+//这段代码是关于序列号到时间映射的实现，主要用于在RocksDB中记录序列号（Sequence Number）和时间（Unix 时间戳）之间的映射关系。具体来说，它提供了以下功能：
 
+//1. **SeqnoToTimeMapping 类**：定义了序列号到时间的映射关系，包括了添加、删除、查询等操作。这个类提供了两种状态：强制执行（enforced）和非强制执行（unenforced）状态。在强制执行状态下，对象会维持排序、容量限制和时间跨度限制等不变性。而在非强制执行状态下，这些不变性可能会被放宽，直到重新强制执行。
+
+// 2. **Utility 方法**：提供了一些实用方法，用于将值和写入时间（或序列号）打包成字符串，或者从打包的字符串中解析出值、写入时间（或序列号）。
+
+// 这些功能主要用于处理 RocksDB 中的时间相关数据，例如根据序列号查询对应的时间，或者根据时间查询最近的序列号，以支持一些场景下的数据访问需求。
 #pragma once
 
 #include <algorithm>
