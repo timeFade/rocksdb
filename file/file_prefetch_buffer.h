@@ -317,3 +317,4 @@ class FilePrefetchBuffer {
   // 释放所有缓冲区。
   void FreeAllBuffers();
 };
+}
